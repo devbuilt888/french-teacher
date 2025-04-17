@@ -1,0 +1,15 @@
+.feature-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 30px;
+  margin-bottom: 3rem;
+  max-width: 1000px;
+}
+
+@media (max-width: 768px) {
+  .feature-list {
+    flex-direction: column;
+    align-items: center;
+  }
+} 

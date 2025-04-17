@@ -1,0 +1,53 @@
+.message-bubble {
+  max-width: 70%;
+  padding: 10px 15px;
+  border-radius: 18px;
+  margin-bottom: 8px;
+  position: relative;
+  word-wrap: break-word;
+}
+
+.message-other {
+  background-color: #f0f0f0;
+  border-bottom-left-radius: 4px;
+  align-self: flex-start;
+}
+
+.message-user {
+  background-color: #002395;
+  color: white;
+  border-bottom-right-radius: 4px;
+  align-self: flex-end;
+}
+
+.message-content {
+  margin-bottom: 4px;
+}
+
+.message-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+}
+
+.message-time {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.message-status {
+  font-size: 0.8rem;
+}
+
+.message-status-sent {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.message-status-delivered {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.message-status-read {
+  color: #4CAF50;
+} 

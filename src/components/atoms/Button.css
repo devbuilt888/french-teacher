@@ -1,0 +1,58 @@
+.button {
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button-primary {
+  background-color: #ED2939;
+  color: white;
+  box-shadow: 0 4px 15px rgba(237, 41, 57, 0.5);
+}
+
+.button-primary:hover {
+  background-color: #ff3a4c;
+  transform: scale(1.05);
+}
+
+.button-secondary {
+  background-color: #002395;
+  color: white;
+  box-shadow: 0 4px 15px rgba(0, 35, 149, 0.5);
+}
+
+.button-secondary:hover {
+  background-color: #0033dd;
+  transform: scale(1.05);
+}
+
+.button-outline {
+  background-color: transparent;
+  color: #ED2939;
+  border: 2px solid #ED2939;
+}
+
+.button-outline:hover {
+  background-color: rgba(237, 41, 57, 0.1);
+  transform: scale(1.05);
+}
+
+.button-small {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+}
+
+.button-medium {
+  padding: 12px 24px;
+  font-size: 1.1rem;
+}
+
+.button-large {
+  padding: 16px 32px;
+  font-size: 1.3rem;
+} 

@@ -1,0 +1,91 @@
+.voice-settings {
+  position: relative;
+}
+
+.header-voice-settings {
+  margin-right: 5px;
+}
+
+.voice-settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+}
+
+.settings-icon {
+  font-size: 1.1rem;
+}
+
+.voice-settings-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 300px;
+  max-height: 400px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  margin-top: 10px;
+  overflow: hidden;
+  z-index: 100;
+}
+
+.voice-settings-title {
+  margin-bottom: 10px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 5px;
+}
+
+.voice-list {
+  overflow-y: auto;
+  flex-grow: 1;
+  max-height: 250px;
+  padding-right: 5px;
+}
+
+.voice-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.voice-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.voice-list::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.voice-group {
+  margin-bottom: 15px;
+}
+
+.voice-group-label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.voice-option {
+  margin: 3px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
+.voice-settings-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+}
+
+.reset-button {
+  background-color: #002395;
+} 

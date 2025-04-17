@@ -1,0 +1,27 @@
+.landing-template {
+  background: linear-gradient(135deg, #002395 0%, #001852 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.landing-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.landing-title {
+  margin-bottom: 0.5rem;
+}
+
+.landing-subtitle {
+  margin-bottom: 3rem;
+}
+
+.landing-cta {
+  margin-top: 1rem;
+} 
