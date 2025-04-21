@@ -75,13 +75,14 @@ const ChatFooter = () => {
         type="button"
         variant="outline" 
         size="small" 
-        className={`chat-footer-button ${isRecording ? 'recording' : ''}`}
+        className={`chat-footer-button ${isRecording ? 'recording' : ''} ${isSpeaking ? 'disabled' : ''}`}
         onClick={handleVoiceButton}
         disabled={isSpeaking} // Disable recording while speaking
-        aria-label={isRecording ? "Stop recording" : "Start recording"}
-        title={isRecording ? "Stop recording" : "Start recording"}
+        aria-label={isRecording ? "Stop recording" : "Start voice recording"}
+        title={isRecording ? "Stop recording" : "Start voice recording"}
       >
         <span className="footer-icon">{isRecording ? '⏹️' : '🎤'}</span>
+        {isRecording && <span className="recording-indicator" aria-hidden="true"></span>}
       </Button>
       <TextInput
         value={message}

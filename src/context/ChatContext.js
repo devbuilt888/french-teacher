@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useRef, useCallback } from 'react';
 import { userAvatar, teacherAvatar } from '../assets/teacherAvatar';
 import { initOpenAI, sendMessageToGPT, createFrenchTeacherSystemMessage } from '../services/openaiService';
-import { speak, getVoices, initSpeechRecognition, startRecording, stopRecording } from '../services/speechService';
+import { speak, getVoices, initSpeechRecognition, startRecording, stopRecording, initSpeechSynthesis } from '../services/speechService';
 import { getOpenAIApiKey } from '../services/envService';
 import useLocalStorage from '../hooks/useLocalStorage';
 
@@ -15,6 +15,11 @@ const initialMessages = [
     status: 'read'
   }
 ];
+
+// Check if running on iOS device
+const isIOS = () => {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+};
 
 // Create context
 const ChatContext = createContext();
@@ -33,10 +38,39 @@ export const ChatProvider = ({ children }) => {
   const [selectedVoice, setSelectedVoice] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [audioInitialized, setAudioInitialized] = useState(false);
   
   const recognitionRef = useRef(null);
   const conversationHistoryRef = useRef([]);
   const envApiKey = getOpenAIApiKey();
+
+  // Initialize speech synthesis as early as possible
+  useEffect(() => {
+    // Early initialize speech synthesis (especially important for iOS)
+    try {
+      initSpeechSynthesis();
+      
+      // Attempt to create an AudioContext (important for iOS)
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        const audioCtx = new AudioContext();
+        
+        // If the context is suspended (common on iOS), try to resume it
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume().then(() => {
+            console.log('AudioContext successfully resumed');
+            setAudioInitialized(true);
+          }).catch(e => {
+            console.warn('Could not resume AudioContext:', e);
+          });
+        } else {
+          setAudioInitialized(true);
+        }
+      }
+    } catch (e) {
+      console.warn('Error initializing audio systems:', e);
+    }
+  }, []);
 
   // Initialize voices
   useEffect(() => {
@@ -164,9 +198,40 @@ export const ChatProvider = ({ children }) => {
     
     setIsSpeaking(true);
     try {
+      // For iOS, make sure audio is initialized
+      if (isIOS() && !audioInitialized) {
+        try {
+          // Try to initialize audio context
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            const audioCtx = new AudioContext();
+            audioCtx.resume();
+            
+            // Try to play a silent audio first
+            const silentAudio = new Audio("data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAADQgD///////////////////////////////////////////8AAAA8TEFNRTMuMTAwAQAAAAAAAAAAABSAJAJAQgAAgAAAA0L2YLwxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQZAAP8AAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+            await silentAudio.play();
+            
+            setAudioInitialized(true);
+          }
+        } catch (e) {
+          console.warn('Failed to initialize audio for iOS:', e);
+        }
+      }
+      
+      // Attempt to use the Web Speech API
       await speak(text, 1, 1, selectedVoice);
     } catch (error) {
       console.error('Error speaking message:', error);
+      
+      // If browser is iOS Safari, try to show an audio fallback message
+      if (isIOS()) {
+        setError('Audio may not be working on your iOS device. Please ensure your device is not muted and you have granted audio permissions.');
+        
+        // Show the error for just 5 seconds
+        setTimeout(() => {
+          setError(null);
+        }, 5000);
+      }
     } finally {
       setIsSpeaking(false);
     }
@@ -295,6 +360,34 @@ export const ChatProvider = ({ children }) => {
     startConversation();
   };
 
+  // Force initialize audio (for iOS)
+  const forceInitializeAudio = () => {
+    // Try to play a test sound to initialize audio on iOS
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        const audioCtx = new AudioContext();
+        
+        // Create a short beep
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        gainNode.gain.value = 0.1; // Low volume
+        
+        oscillator.frequency.value = 440; // A4 note
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.1); // Very short beep
+        
+        setAudioInitialized(true);
+      }
+    } catch (e) {
+      console.error('Error initializing audio:', e);
+    }
+  };
+
   return (
     <ChatContext.Provider value={{ 
       messages, 
@@ -314,7 +407,9 @@ export const ChatProvider = ({ children }) => {
       startVoiceRecording,
       stopVoiceRecording,
       resetConversation,
-      hasApiKey: !!envApiKey
+      hasApiKey: !!envApiKey,
+      audioInitialized,
+      forceInitializeAudio
     }}>
       {children}
     </ChatContext.Provider>

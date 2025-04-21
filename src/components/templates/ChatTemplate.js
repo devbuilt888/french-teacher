@@ -4,6 +4,7 @@ import MessageList from '../organisms/MessageList';
 import ChatFooter from '../molecules/ChatFooter';
 import ApiKeyForm from '../molecules/ApiKeyForm';
 import Typography from '../atoms/Typography';
+import IOSAudioHelper from '../molecules/IOSAudioHelper';
 import { useChat } from '../../context/ChatContext';
 import './ChatTemplate.css';
 
@@ -87,6 +88,7 @@ const ChatTemplate = ({ onBackClick, teacherName = "Super French Tutor" }) => {
       </div>
       
       <ChatFooter />
+      <IOSAudioHelper />
     </div>
   );
 };

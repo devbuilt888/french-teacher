@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
+  <!-- French flag colors -->
+  <rect x="0" y="700" width="800" height="5" fill="#FFFFFF" opacity="0.3"/>
+  <!-- Eiffel Tower -->
+  <path d="M400 150 L380 250 L420 250 Z" fill="none" stroke="#3D5AFE" stroke-width="2"/>
+  <path d="M385 250 L365 350 L435 350 L415 250 Z" fill="none" stroke="#3D5AFE" stroke-width="2"/>
+  <path d="M370 350 L350 450 L450 450 L430 350 Z" fill="none" stroke="#3D5AFE" stroke-width="2"/>
+  <path d="M355 450 L340 520 L460 520 L445 450 Z" fill="none" stroke="#3D5AFE" stroke-width="2"/>
+  <path d="M340 520 L340 530 L460 530 L460 520 Z" fill="none" stroke="#3D5AFE" stroke-width="2"/>
+  <path d="M380 530 L380 650 L420 650 L420 530 Z" fill="none" stroke="#3D5AFE" stroke-width="2"/>
+  <path d="M360 650 L360 660 L440 660 L440 650 Z" fill="none" stroke="#3D5AFE" stroke-width="2"/>
+  <path d="M380 660 L380 700 L420 700 L420 660 Z" fill="none" stroke="#3D5AFE" stroke-width="2"/>
+  <!-- Stars -->
+  <path d="M200 200 L205 190 L210 200 L220 205 L210 210 L205 220 L200 210 L190 205 Z" fill="#FFFFFF" opacity="0.5"/>
+  <path d="M600 300 L605 290 L610 300 L620 305 L610 310 L605 320 L600 310 L590 305 Z" fill="#FFFFFF" opacity="0.5"/>
+  <path d="M300 400 L305 390 L310 400 L320 405 L310 410 L305 420 L300 410 L290 405 Z" fill="#FFFFFF" opacity="0.5"/>
+  <!-- French flag stripes -->
+  <path d="M0 700 L800 700" stroke="#FFFFFF" stroke-width="2" opacity="0.3"/>
+  <path d="M0 710 L800 710" stroke="#E30B1C" stroke-width="2" opacity="0.3"/>
+  <path d="M0 720 L800 720" stroke="#002395" stroke-width="2" opacity="0.3"/>
+</svg> 

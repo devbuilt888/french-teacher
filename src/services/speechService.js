@@ -3,6 +3,37 @@ const getPreferredLanguage = () => {
   return process.env.REACT_APP_DEFAULT_LANGUAGE || 'fr-FR';
 };
 
+// Check if running on iOS device
+const isIOS = () => {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+};
+
+// Initialize speech synthesis on iOS - this needs to be called early
+export const initSpeechSynthesis = () => {
+  // Try to wake up speech synthesis on page load (especially for iOS)
+  if ('speechSynthesis' in window) {
+    // Create an empty utterance
+    const utterance = new SpeechSynthesisUtterance('');
+    
+    // Try to prevent the iOS bug where speech synthesis stops after a few seconds
+    if (isIOS()) {
+      setInterval(() => {
+        // This keeps the speech synthesis service active
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      }, 5000);
+    }
+    
+    // Try to speak the empty utterance
+    try {
+      window.speechSynthesis.speak(utterance);
+      window.speechSynthesis.cancel(); // Immediately cancel it
+    } catch (e) {
+      console.warn('Failed to initialize speech synthesis:', e);
+    }
+  }
+};
+
 // Speech synthesis (Text-to-Speech)
 export const speak = (text, rate = 1, pitch = 1, voice = null) => {
   return new Promise((resolve, reject) => {
@@ -12,36 +43,163 @@ export const speak = (text, rate = 1, pitch = 1, voice = null) => {
       return;
     }
 
+    // Split long text into chunks for iOS (iOS has a character limit)
+    let textChunks = [];
+    if (isIOS() && text.length > 200) {
+      // Split by sentences or reasonable chunks
+      const sentences = text.split(/(?<=\.|\?|\!)\s+/);
+      let currentChunk = '';
+      
+      sentences.forEach(sentence => {
+        if (currentChunk.length + sentence.length < 200) {
+          currentChunk += sentence + ' ';
+        } else {
+          if (currentChunk) textChunks.push(currentChunk.trim());
+          currentChunk = sentence + ' ';
+        }
+      });
+      
+      if (currentChunk) textChunks.push(currentChunk.trim());
+    } else {
+      textChunks = [text];
+    }
+    
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
     
-    // Set voice if provided, otherwise it will use the default
-    if (voice) {
-      utterance.voice = voice;
-    } else {
-      // Try to find a voice for the preferred language, otherwise use default
-      const preferredLang = getPreferredLanguage();
-      const voices = window.speechSynthesis.getVoices();
-      const preferredVoice = voices.find(voice => voice.lang.includes(preferredLang.split('-')[0]));
-      if (preferredVoice) {
-        utterance.voice = preferredVoice;
+    let utteranceIndex = 0;
+    let activeSpeech = false;
+    
+    // For iOS workaround
+    let resumeTimer = null;
+    
+    // Setup iOS watchdog timer to prevent premature pausing
+    const setupWatchdog = () => {
+      if (isIOS() && activeSpeech) {
+        // Clear existing timer if any
+        if (resumeTimer) clearInterval(resumeTimer);
+        
+        // Set up a new resume timer
+        resumeTimer = setInterval(() => {
+          // Only act if we're still in active speech
+          if (activeSpeech) {
+            try {
+              // Pause and resume to prevent iOS from stopping
+              if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.pause();
+                window.speechSynthesis.resume();
+              }
+            } catch (e) {
+              console.warn('Error in watchdog timer:', e);
+            }
+          } else {
+            // Speech is done, clear the timer
+            clearInterval(resumeTimer);
+            resumeTimer = null;
+          }
+        }, 5000); // Check every 5 seconds
       }
-    }
+    };
+    
+    // Function to speak the next chunk
+    const speakNextChunk = () => {
+      if (utteranceIndex >= textChunks.length) {
+        activeSpeech = false;
+        if (resumeTimer) {
+          clearInterval(resumeTimer);
+          resumeTimer = null;
+        }
+        resolve();
+        return;
+      }
+      
+      const chunk = textChunks[utteranceIndex];
+      const utterance = new SpeechSynthesisUtterance(chunk);
+      
+      // Set voice if provided, otherwise it will use the default
+      if (voice) {
+        utterance.voice = voice;
+      } else {
+        // Try to find a voice for the preferred language, otherwise use default
+        const preferredLang = getPreferredLanguage();
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(voice => voice.lang.includes(preferredLang.split('-')[0]));
+        if (preferredVoice) {
+          utterance.voice = preferredVoice;
+        }
+      }
 
-    utterance.rate = rate;
-    utterance.pitch = pitch;
-    
-    utterance.onend = () => {
-      resolve();
+      utterance.rate = rate;
+      utterance.pitch = pitch;
+      
+      // Critical iOS workaround - this prevents premature stopping on iOS
+      if (isIOS()) {
+        utterance.onboundary = () => {
+          // This helps prevent iOS from pausing
+          try {
+            if (window.speechSynthesis.speaking) {
+              window.speechSynthesis.pause();
+              setTimeout(() => {
+                if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+              }, 0);
+            }
+          } catch (e) {
+            console.warn('Error in boundary event:', e);
+          }
+        };
+      }
+      
+      utterance.onstart = () => {
+        activeSpeech = true;
+        setupWatchdog();
+      };
+      
+      utterance.onend = () => {
+        utteranceIndex++;
+        speakNextChunk();
+      };
+      
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
+        if (utteranceIndex < textChunks.length - 1) {
+          // Try the next chunk if this one fails
+          utteranceIndex++;
+          speakNextChunk();
+        } else {
+          activeSpeech = false;
+          if (resumeTimer) {
+            clearInterval(resumeTimer);
+            resumeTimer = null;
+          }
+          reject(event.error);
+        }
+      };
+      
+      // Critical iOS workaround to unmute audio
+      if (isIOS() && utteranceIndex === 0) {
+        // Create and play a silent audio clip to enable audio
+        try {
+          const silentAudio = new Audio("data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAADQgD///////////////////////////////////////////8AAAA8TEFNRTMuMTAwAQAAAAAAAAAAABSAJAJAQgAAgAAAA0L2YLwxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQZAAP8AAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+          silentAudio.volume = 0.1;
+          silentAudio.play().then(() => {
+            // Start speaking after audio context is activated
+            window.speechSynthesis.speak(utterance);
+          }).catch(err => {
+            // If silent audio fails, try speaking directly
+            console.warn("Silent audio failed, trying direct speech:", err);
+            window.speechSynthesis.speak(utterance);
+          });
+        } catch (e) {
+          console.warn("Error with silent audio, trying direct speech:", e);
+          window.speechSynthesis.speak(utterance);
+        }
+      } else {
+        window.speechSynthesis.speak(utterance);
+      }
     };
     
-    utterance.onerror = (event) => {
-      reject(event.error);
-    };
-    
-    window.speechSynthesis.speak(utterance);
+    // Start speaking
+    speakNextChunk();
   });
 };
 
