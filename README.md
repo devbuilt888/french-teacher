@@ -1,6 +1,55 @@
 # Super French Teacher
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+An interactive React application to help users learn French with 3D models and an AI chat interface.
+
+## Features
+
+- Interactive 3D scene with French-themed models (croissant, bread, champagne, Eiffel Tower, etc.)
+- Click to respawn models in new positions
+- Conversational French learning through an AI chat interface
+
+## Quick Start
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Start the development server: `npm start`
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Deploying to CPanel
+
+To deploy this application to CPanel, follow these steps:
+
+1. Create a production build:
+   ```
+   npm run build
+   ```
+
+2. The build process creates a `build` folder with optimized static files.
+
+3. Upload the entire contents of the `build` folder to your CPanel hosting:
+   - Use the File Manager in CPanel or an FTP client like FileZilla
+   - Upload to your public_html directory (or subdomain directory)
+   - Make sure to include the `.htaccess` file
+
+4. Important: Ensure the 3D models are properly uploaded:
+   - The models should be in the `/models` directory on your server
+   - Check that all model files (croissant.glb, bread.glb, etc.) are uploaded
+
+5. Visit your domain in a browser to verify the deployment.
+
+For a more detailed deployment guide, see the [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) file.
+
+## Development
+
+This project was created with:
+- React
+- React Three Fiber / Drei
+- React Router
+- Three.js
+
+## License
+
+This project is licensed under the MIT License.
 
 ## Environment Setup
 
@@ -16,36 +65,6 @@ REACT_APP_OPENAI_API_KEY=sk-your_actual_openai_key_here
 ```
 
 Your API key is stored only in your local environment and is never sent to any server other than OpenAI's API endpoints.
-
-## Deploying to CPanel
-
-This React application is configured to work seamlessly on CPanel servers. Follow these steps to deploy:
-
-### Building the application
-
-1. Run the build command: `npm run build`
-2. This will create a `build` directory containing static files ready for deployment
-
-### Uploading to CPanel
-
-1. Log in to your CPanel account
-2. Navigate to File Manager
-3. Go to the `public_html` directory or the subdirectory where you want to host the app
-4. Upload all contents of the `build` directory
-
-### Important Notes
-
-- The `.htaccess` file is already included in the build and configured for React routing
-- The application uses relative paths (`"homepage": "."`) so it can be deployed in any directory
-- If deploying to a subdirectory, no additional configuration is needed
-- For custom domains or subdomains, the same build will work without modifications
-
-### Troubleshooting
-
-If routes aren't working correctly:
-1. Make sure mod_rewrite is enabled on your CPanel server
-2. Verify the `.htaccess` file was uploaded correctly
-3. Check file permissions (`.htaccess` should be readable by the server)
 
 ## Available Scripts
 

@@ -9,12 +9,30 @@ const LandingTemplate = ({ onStartClick }) => {
     <div className="landing-template">
       <ModelLoader />
       <div className="landing-content">
+        <div className="promo-badges-container">
+          <div className="promo-badge">
+            <div className="promo-text">
+              <span>💬</span> Talk about anything
+            </div>
+          </div>
+          <div className="promo-badge">
+            <div className="promo-text">
+              <span>🧘</span> No judgement, no pressure
+            </div>
+          </div>
+          <div className="promo-badge">
+            <div className="promo-text">
+              <span>∞</span> Unlimited practice
+            </div>
+          </div>
+        </div>
+        
         <div className="landing-hero">
           <Typography variant="h1" color="white" align="center" className="landing-title">
-            Super French Teacher
+            French Conversation Pro
           </Typography>
           <Typography variant="subtitle1" color="white" align="center" className="landing-subtitle">
-            Improve your French skills with personalized conversation
+            Complement your language studies with realistic conversation practice using AI
           </Typography>
           
           <Button 
@@ -24,7 +42,7 @@ const LandingTemplate = ({ onStartClick }) => {
             className="landing-cta"
             type="button"
           >
-            Talk to Your Teacher
+            Start Conversing Now
           </Button>
         </div>
       </div>

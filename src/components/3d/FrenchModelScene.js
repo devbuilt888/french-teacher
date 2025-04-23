@@ -26,17 +26,14 @@ function Model({ url, position, scale = 1.0 }) {
   const [gltf, setGltf] = useState(null);
   
   // Size multipliers for better collision fitting
-  const getSizeMultiplier = () => {
-    if (url.includes('tower')) return [0.2, 1, 0.2]; // Tall and thin for tower
-    if (url.includes('croissant')) return [0.7, 0.3, 0.4]; // Curved shape for croissant
-    if (url.includes('bread')) return [0.6, 0.4, 0.8]; // Bread loaf shape
-    if (url.includes('champagne')) return [0.3, 0.8, 0.3]; // Tall thin bottle
-    if (url.includes('chicken')) return [0.6, 0.6, 0.8]; // Chicken shape
-    return [0.5, 0.5, 0.5]; // Default
-  };
+  const sizeMultiplier = url.includes('tower') ? [0.2, 1, 0.2] : 
+                         url.includes('croissant') ? [0.7, 0.3, 0.4] : 
+                         url.includes('bread') ? [0.6, 0.4, 0.8] : 
+                         url.includes('champagne') ? [0.3, 0.8, 0.3] : 
+                         url.includes('chicken') ? [0.6, 0.6, 0.8] : 
+                         [0.5, 0.5, 0.5];
   
   // Create physics box with better-fitting size
-  const sizeMultiplier = getSizeMultiplier();
   const [ref, api] = useBox(() => ({ 
     mass: 1,
     position,
@@ -95,7 +92,7 @@ function Model({ url, position, scale = 1.0 }) {
     );
   };
   
-  // If there's an error loading the model, render a simple box
+  // Render appropriate mesh based on loading state
   if (error) {
     return (
       <mesh 
@@ -114,7 +111,6 @@ function Model({ url, position, scale = 1.0 }) {
     );
   }
   
-  // If the model is still loading, render a placeholder
   if (!gltf) {
     return (
       <mesh 
