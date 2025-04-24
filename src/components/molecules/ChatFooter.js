@@ -15,7 +15,8 @@ const ChatFooter = () => {
     isRecording, 
     isSpeaking,
     startVoiceRecording, 
-    stopVoiceRecording 
+    stopVoiceRecording,
+    audioInitialized
   } = useChat();
 
   // Handle recording timer
@@ -69,15 +70,21 @@ const ChatFooter = () => {
     }
   };
 
+  // Check if iOS device
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  
+  // Determine if microphone should be disabled
+  const micDisabled = isSpeaking || (isIOS && !audioInitialized);
+
   return (
     <form className="chat-footer" onSubmit={handleSubmit}>
       <Button 
         type="button"
         variant="outline" 
         size="small" 
-        className={`chat-footer-button ${isRecording ? 'recording' : ''} ${isSpeaking ? 'disabled' : ''}`}
+        className={`chat-footer-button ${isRecording ? 'recording' : ''} ${micDisabled ? 'disabled' : ''}`}
         onClick={handleVoiceButton}
-        disabled={isSpeaking} // Disable recording while speaking
+        disabled={micDisabled} // Disable recording while speaking or if audio not initialized on iOS
         aria-label={isRecording ? "Stop recording" : "Start voice recording"}
         title={isRecording ? "Stop recording" : "Start voice recording"}
       >
@@ -89,7 +96,9 @@ const ChatFooter = () => {
         onChange={(e) => setMessage(e.target.value)}
         placeholder={isRecording 
           ? `Recording${recordingTime > 0 ? ` ${formatRecordingTime()}` : ''}... (click mic to stop)` 
-          : "Type a message..."}
+          : isIOS && !audioInitialized 
+            ? "Please enable audio to use voice input..." 
+            : "Type a message..."}
         className="chat-footer-input"
         disabled={isRecording || isSpeaking}
         onKeyDown={onKeyDown}

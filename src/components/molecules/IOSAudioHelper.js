@@ -4,6 +4,7 @@ import { useChat } from '../../context/ChatContext';
 
 const IOSAudioHelper = () => {
   const [isIOS, setIsIOS] = useState(false);
+  const [isSafari, setIsSafari] = useState(false);
   const [visible, setVisible] = useState(false);
   const [attempts, setAttempts] = useState(0);
   const [feedback, setFeedback] = useState('');
@@ -11,18 +12,21 @@ const IOSAudioHelper = () => {
   const { audioInitialized, forceInitializeAudio } = useChat();
 
   useEffect(() => {
-    // Check if device is iOS
-    const checkIOS = () => {
+    // Check if device is iOS or Safari
+    const checkBrowser = () => {
       const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
       setIsIOS(iOS);
       
-      if (iOS) {
-        // Show helper immediately on iOS
+      const safari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      setIsSafari(safari);
+      
+      // Show helper immediately on iOS or Safari
+      if (iOS || safari) {
         setVisible(true);
       }
     };
     
-    checkIOS();
+    checkBrowser();
   }, []);
   
   useEffect(() => {
@@ -43,32 +47,34 @@ const IOSAudioHelper = () => {
 
   const enableAudio = async () => {
     try {
-      setFeedback('Initializing audio...');
+      setFeedback('Initializing audio and requesting microphone access...');
       setAttempts(prev => prev + 1);
       
       // Use the context function to initialize audio
       forceInitializeAudio();
       
       // If we got here without errors, we're likely good
-      setFeedback('Audio initialized successfully!');
+      setFeedback('Audio initialized successfully! A permission prompt for microphone access may appear.');
       
       // Hide after success (the context effect will handle this)
     } catch (error) {
       console.error('Error enabling audio:', error);
-      setFeedback('Failed to initialize audio. Please try again.');
+      setFeedback('Failed to initialize audio. Please try again and ensure you allow microphone access.');
     }
   };
 
-  // Only show on iOS and if not yet initialized
-  if (!isIOS || (audioInitialized && !visible)) return null;
+  // Show for iOS or Safari when audio is not initialized
+  if ((!isIOS && !isSafari) || (audioInitialized && !visible)) return null;
+
+  const browserType = isIOS ? 'iOS' : 'Safari';
 
   return (
     <div className="ios-audio-helper">
-      <h3>iOS Audio Setup</h3>
+      <h3>{browserType} Audio & Microphone Setup</h3>
       
       <p>
         {!audioInitialized ? 
-          'Audio must be enabled on iOS devices. Please tap the button below to enable audio.' : 
+          `Audio initialization is required for ${browserType}. Please tap the button below to enable these features.` : 
           'Audio is now enabled! This message will disappear shortly.'}
       </p>
       
@@ -80,11 +86,11 @@ const IOSAudioHelper = () => {
             className="audio-enable-button" 
             onClick={enableAudio}
           >
-            Enable Audio
+            Enable Audio & Microphone
           </button>
         )}
         
-        {attempts >= 2 && !audioInitialized && (
+        {attempts >= 1 && !audioInitialized && (
           <button 
             className="audio-reload-button" 
             onClick={() => window.location.reload()}
@@ -97,8 +103,15 @@ const IOSAudioHelper = () => {
       {!audioInitialized && (
         <div className="audio-tips">
           <small>
-            <strong>Tips:</strong> Make sure your device is not on silent mode. 
-            If audio still doesn't work, try reloading the page.
+            <strong>Tips for {browserType}:</strong>
+            <ul>
+              {isIOS && <li>Make sure your device is not on silent mode</li>}
+              <li>Ensure microphone and audio access is allowed for this website</li>
+              {isIOS && <li>If using as a Home Screen app, you may need to open in Safari first and grant permissions</li>}
+              <li>After granting permissions, you might need to reload the page</li>
+              {isSafari && <li>Consider using Chrome or Firefox for better compatibility</li>}
+              {isSafari && <li>Check your Safari security settings to ensure they allow audio</li>}
+            </ul>
           </small>
         </div>
       )}

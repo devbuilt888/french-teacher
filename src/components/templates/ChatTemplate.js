@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import ChatHeader from '../molecules/ChatHeader';
 import MessageList from '../organisms/MessageList';
 import ChatFooter from '../molecules/ChatFooter';
@@ -9,6 +9,9 @@ import { useChat } from '../../context/ChatContext';
 import './ChatTemplate.css';
 
 const ChatTemplate = ({ onBackClick, teacherName = "Super French Tutor" }) => {
+  const [isSafari, setIsSafari] = useState(false);
+  const [safariWarningDismissed, setSafariWarningDismissed] = useState(false);
+  
   const { 
     messages, 
     userAvatar, 
@@ -19,6 +22,20 @@ const ChatTemplate = ({ onBackClick, teacherName = "Super French Tutor" }) => {
     isSpeaking,
     hasApiKey
   } = useChat();
+  
+  useEffect(() => {
+    // Check if browser is Safari
+    const checkSafari = () => {
+      const isSafariBrowser = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      setIsSafari(isSafariBrowser);
+    };
+    
+    checkSafari();
+  }, []);
+
+  const dismissSafariWarning = () => {
+    setSafariWarningDismissed(true);
+  };
 
   return (
     <div className="chat-template">
@@ -28,6 +45,24 @@ const ChatTemplate = ({ onBackClick, teacherName = "Super French Tutor" }) => {
         avatarSrc={teacherAvatar}
         onBackClick={onBackClick}
       />
+      
+      {isSafari && !safariWarningDismissed && (
+        <div className="browser-compatibility-warning">
+          <Typography variant="subtitle2" color="primary">
+            Browser Compatibility Notice
+          </Typography>
+          <Typography variant="body2" color="dark">
+            Safari may have issues with speech and audio features. For the best experience, 
+            consider using Chrome, Firefox, or Edge.
+          </Typography>
+          <button 
+            className="dismiss-warning-button"
+            onClick={dismissSafariWarning}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       
       <div className="chat-content">
         {!isInitialized && (

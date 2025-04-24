@@ -8,26 +8,54 @@ const isIOS = () => {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 };
 
+// Check if running on Safari (including iOS Safari)
+const isSafari = () => {
+  return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+};
+
 // Initialize speech synthesis on iOS - this needs to be called early
 export const initSpeechSynthesis = () => {
-  // Try to wake up speech synthesis on page load (especially for iOS)
+  // Try to wake up speech synthesis on page load (especially for iOS/Safari)
   if ('speechSynthesis' in window) {
     // Create an empty utterance
     const utterance = new SpeechSynthesisUtterance('');
     
-    // Try to prevent the iOS bug where speech synthesis stops after a few seconds
-    if (isIOS()) {
-      setInterval(() => {
-        // This keeps the speech synthesis service active
-        window.speechSynthesis.pause();
-        window.speechSynthesis.resume();
-      }, 5000);
+    // Use a different approach for Safari to prevent crashes
+    if (isIOS() || isSafari()) {
+      // For Safari/iOS, use a less aggressive approach
+      const resumeSpeechSynthesis = () => {
+        try {
+          if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          }
+        } catch (e) {
+          console.warn('Error in speech synthesis resume:', e);
+        }
+      };
+      
+      // Set a gentler interval for Safari
+      setInterval(resumeSpeechSynthesis, 10000);
     }
     
-    // Try to speak the empty utterance
+    // Try to speak the empty utterance in a safer way
     try {
-      window.speechSynthesis.speak(utterance);
-      window.speechSynthesis.cancel(); // Immediately cancel it
+      // For Safari, we need to be more careful about initializing synthesis
+      if (isSafari()) {
+        // Don't immediately cancel, as this can cause issues in Safari
+        window.speechSynthesis.speak(utterance);
+        
+        // Give it some time before canceling
+        setTimeout(() => {
+          try {
+            window.speechSynthesis.cancel();
+          } catch (e) {
+            console.warn('Error canceling initial speech:', e);
+          }
+        }, 500);
+      } else {
+        window.speechSynthesis.speak(utterance);
+        window.speechSynthesis.cancel(); // Immediately cancel it
+      }
     } catch (e) {
       console.warn('Failed to initialize speech synthesis:', e);
     }
@@ -45,7 +73,7 @@ export const speak = (text, rate = 1, pitch = 1, voice = null) => {
 
     // Split long text into chunks for iOS (iOS has a character limit)
     let textChunks = [];
-    if (isIOS() && text.length > 200) {
+    if ((isIOS() || isSafari()) && text.length > 200) {
       // Split by sentences or reasonable chunks
       const sentences = text.split(/(?<=\.|\?|\!)\s+/);
       let currentChunk = '';
@@ -64,30 +92,35 @@ export const speak = (text, rate = 1, pitch = 1, voice = null) => {
       textChunks = [text];
     }
     
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
+    // Cancel any ongoing speech - but do it safely for Safari
+    try {
+      window.speechSynthesis.cancel();
+    } catch (e) {
+      console.warn('Error canceling speech synthesis:', e);
+    }
     
     let utteranceIndex = 0;
     let activeSpeech = false;
     
-    // For iOS workaround
+    // For iOS/Safari workaround
     let resumeTimer = null;
     
-    // Setup iOS watchdog timer to prevent premature pausing
+    // Setup iOS/Safari watchdog timer to prevent premature pausing
     const setupWatchdog = () => {
-      if (isIOS() && activeSpeech) {
+      if ((isIOS() || isSafari()) && activeSpeech) {
         // Clear existing timer if any
         if (resumeTimer) clearInterval(resumeTimer);
         
-        // Set up a new resume timer
+        // Set up a new resume timer with safer interval for Safari
         resumeTimer = setInterval(() => {
           // Only act if we're still in active speech
           if (activeSpeech) {
             try {
-              // Pause and resume to prevent iOS from stopping
-              if (window.speechSynthesis.speaking) {
-                window.speechSynthesis.pause();
-                window.speechSynthesis.resume();
+              // For Safari, we need to use a gentler approach
+              if (window.speechSynthesis.speaking || window.speechSynthesis.paused) {
+                if (window.speechSynthesis.paused) {
+                  window.speechSynthesis.resume();
+                }
               }
             } catch (e) {
               console.warn('Error in watchdog timer:', e);
@@ -97,7 +130,7 @@ export const speak = (text, rate = 1, pitch = 1, voice = null) => {
             clearInterval(resumeTimer);
             resumeTimer = null;
           }
-        }, 5000); // Check every 5 seconds
+        }, isSafari() ? 10000 : 5000); // Use longer interval for Safari
       }
     };
     
@@ -132,21 +165,10 @@ export const speak = (text, rate = 1, pitch = 1, voice = null) => {
       utterance.rate = rate;
       utterance.pitch = pitch;
       
-      // Critical iOS workaround - this prevents premature stopping on iOS
-      if (isIOS()) {
-        utterance.onboundary = () => {
-          // This helps prevent iOS from pausing
-          try {
-            if (window.speechSynthesis.speaking) {
-              window.speechSynthesis.pause();
-              setTimeout(() => {
-                if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-              }, 0);
-            }
-          } catch (e) {
-            console.warn('Error in boundary event:', e);
-          }
-        };
+      // For Safari, we need a different approach
+      if (isIOS() || isSafari()) {
+        // Reduce the number of events that could cause issues in Safari
+        utterance.onboundary = null;
       }
       
       utterance.onstart = () => {
@@ -156,7 +178,12 @@ export const speak = (text, rate = 1, pitch = 1, voice = null) => {
       
       utterance.onend = () => {
         utteranceIndex++;
-        speakNextChunk();
+        // Add a small delay for Safari to avoid rapid state changes
+        if (isSafari()) {
+          setTimeout(() => speakNextChunk(), 100);
+        } else {
+          speakNextChunk();
+        }
       };
       
       utterance.onerror = (event) => {
@@ -164,7 +191,12 @@ export const speak = (text, rate = 1, pitch = 1, voice = null) => {
         if (utteranceIndex < textChunks.length - 1) {
           // Try the next chunk if this one fails
           utteranceIndex++;
-          speakNextChunk();
+          // Add a small delay for Safari
+          if (isSafari()) {
+            setTimeout(() => speakNextChunk(), 300);
+          } else {
+            speakNextChunk();
+          }
         } else {
           activeSpeech = false;
           if (resumeTimer) {
@@ -175,26 +207,56 @@ export const speak = (text, rate = 1, pitch = 1, voice = null) => {
         }
       };
       
-      // Critical iOS workaround to unmute audio
-      if (isIOS() && utteranceIndex === 0) {
-        // Create and play a silent audio clip to enable audio
+      // Critical iOS/Safari workaround to unmute audio
+      if ((isIOS() || isSafari()) && utteranceIndex === 0) {
+        // For Safari, using a different approach that's less likely to cause crashes
         try {
-          const silentAudio = new Audio("data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAADQgD///////////////////////////////////////////8AAAA8TEFNRTMuMTAwAQAAAAAAAAAAABSAJAJAQgAAgAAAA0L2YLwxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQZAAP8AAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
-          silentAudio.volume = 0.1;
-          silentAudio.play().then(() => {
-            // Start speaking after audio context is activated
-            window.speechSynthesis.speak(utterance);
-          }).catch(err => {
-            // If silent audio fails, try speaking directly
-            console.warn("Silent audio failed, trying direct speech:", err);
-            window.speechSynthesis.speak(utterance);
-          });
+          // Create a silent audio context instead of using an Audio element
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            const audioCtx = new AudioContext();
+            // Create a silent oscillator
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            // Set it to very quiet
+            gainNode.gain.value = 0.01;
+            
+            // Play a very short sound
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.01);
+            
+            // Start speaking after a short delay
+            setTimeout(() => {
+              try {
+                window.speechSynthesis.speak(utterance);
+              } catch (e) {
+                console.warn('Error in speech after oscillator:', e);
+                reject(e);
+              }
+            }, 100);
+          } else {
+            // Fallback if AudioContext is not available
+            setTimeout(() => window.speechSynthesis.speak(utterance), 10);
+          }
         } catch (e) {
-          console.warn("Error with silent audio, trying direct speech:", e);
-          window.speechSynthesis.speak(utterance);
+          console.warn("Error with audio initialization, trying direct speech:", e);
+          try {
+            window.speechSynthesis.speak(utterance);
+          } catch (err) {
+            console.error("Final speech attempt failed:", err);
+            reject(err);
+          }
         }
       } else {
-        window.speechSynthesis.speak(utterance);
+        try {
+          window.speechSynthesis.speak(utterance);
+        } catch (e) {
+          console.error("Error speaking:", e);
+          reject(e);
+        }
       }
     };
     

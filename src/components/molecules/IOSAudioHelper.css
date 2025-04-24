@@ -102,4 +102,17 @@
   border-radius: 4px;
   text-align: left;
   line-height: 1.4;
+}
+
+.audio-tips ul {
+  margin: 5px 0 0 0;
+  padding-left: 20px;
+}
+
+.audio-tips li {
+  margin-bottom: 4px;
+}
+
+.audio-tips li:last-child {
+  margin-bottom: 0;
 } 

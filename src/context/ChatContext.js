@@ -21,6 +21,11 @@ const isIOS = () => {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 };
 
+// Check if running on Safari (including iOS Safari)
+const isSafari = () => {
+  return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+};
+
 // Create context
 const ChatContext = createContext();
 
@@ -39,10 +44,12 @@ export const ChatProvider = ({ children }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [audioInitialized, setAudioInitialized] = useState(false);
+  const [audioInitFailCount, setAudioInitFailCount] = useState(0);
   
   const recognitionRef = useRef(null);
   const conversationHistoryRef = useRef([]);
   const envApiKey = getOpenAIApiKey();
+  const audioContextRef = useRef(null);
 
   // Initialize speech synthesis as early as possible
   useEffect(() => {
@@ -50,22 +57,51 @@ export const ChatProvider = ({ children }) => {
     try {
       initSpeechSynthesis();
       
-      // Attempt to create an AudioContext (important for iOS)
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (AudioContext) {
-        const audioCtx = new AudioContext();
-        
-        // If the context is suspended (common on iOS), try to resume it
-        if (audioCtx.state === 'suspended') {
-          audioCtx.resume().then(() => {
-            console.log('AudioContext successfully resumed');
-            setAudioInitialized(true);
-          }).catch(e => {
-            console.warn('Could not resume AudioContext:', e);
+      // For Safari, we need to handle audio context more carefully
+      const safariAudioInit = () => {
+        try {
+          // Attempt to create an AudioContext (important for iOS)
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            // Store reference to prevent recreation
+            if (!audioContextRef.current) {
+              audioContextRef.current = new AudioContext();
+            }
+            
+            const audioCtx = audioContextRef.current;
+            
+            // If the context is suspended (common on iOS/Safari), try to resume it
+            if (audioCtx.state === 'suspended') {
+              // For Safari, we need a user interaction to resume audio context
+              // We'll handle this in the forceInitializeAudio function
+              console.log('AudioContext is suspended, waiting for user interaction');
+            } else if (audioCtx.state === 'running') {
+              console.log('AudioContext is already running');
+              setAudioInitialized(true);
+            }
+          }
+        } catch (e) {
+          console.warn('Error initializing audio systems:', e);
+          
+          // Track failed attempts but limit to prevent infinite loops
+          setAudioInitFailCount(prev => {
+            const newCount = prev + 1;
+            // If we've tried too many times, stop trying to prevent browser crashes
+            if (newCount > 3) {
+              console.error('Too many audio initialization failures, giving up');
+            }
+            return newCount;
           });
-        } else {
-          setAudioInitialized(true);
         }
+      };
+      
+      // Initialize audio differently for Safari vs other browsers
+      if (isSafari() || isIOS()) {
+        // For Safari, wait for user gesture in forceInitializeAudio
+        console.log('Safari detected, waiting for user interaction to initialize audio');
+      } else {
+        // For other browsers, try to initialize immediately
+        safariAudioInit();
       }
     } catch (e) {
       console.warn('Error initializing audio systems:', e);
@@ -198,23 +234,13 @@ export const ChatProvider = ({ children }) => {
     
     setIsSpeaking(true);
     try {
-      // For iOS, make sure audio is initialized
-      if (isIOS() && !audioInitialized) {
+      // For iOS or Safari, make sure audio is initialized
+      if ((isIOS() || isSafari()) && !audioInitialized) {
         try {
           // Try to initialize audio context
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          if (AudioContext) {
-            const audioCtx = new AudioContext();
-            audioCtx.resume();
-            
-            // Try to play a silent audio first
-            const silentAudio = new Audio("data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAADQgD///////////////////////////////////////////8AAAA8TEFNRTMuMTAwAQAAAAAAAAAAABSAJAJAQgAAgAAAA0L2YLwxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQZAAP8AAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
-            await silentAudio.play();
-            
-            setAudioInitialized(true);
-          }
+          await forceInitializeAudio();
         } catch (e) {
-          console.warn('Failed to initialize audio for iOS:', e);
+          console.warn('Failed to initialize audio for Safari/iOS:', e);
         }
       }
       
@@ -224,8 +250,8 @@ export const ChatProvider = ({ children }) => {
       console.error('Error speaking message:', error);
       
       // If browser is iOS Safari, try to show an audio fallback message
-      if (isIOS()) {
-        setError('Audio may not be working on your iOS device. Please ensure your device is not muted and you have granted audio permissions.');
+      if (isIOS() || isSafari()) {
+        setError('Audio may not be working on your device. Please ensure your device is not muted and you have granted audio permissions.');
         
         // Show the error for just 5 seconds
         setTimeout(() => {
@@ -360,32 +386,95 @@ export const ChatProvider = ({ children }) => {
     startConversation();
   };
 
-  // Force initialize audio (for iOS)
+  // Force initialize audio (for iOS/Safari)
   const forceInitializeAudio = () => {
-    // Try to play a test sound to initialize audio on iOS
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (AudioContext) {
-        const audioCtx = new AudioContext();
-        
-        // Create a short beep
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        
-        gainNode.gain.value = 0.1; // Low volume
-        
-        oscillator.frequency.value = 440; // A4 note
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.1); // Very short beep
-        
-        setAudioInitialized(true);
+    // Return a promise so we can await the initialization
+    return new Promise((resolve, reject) => {
+      // Track attempt to prevent infinite retries
+      setAudioInitFailCount(prev => prev + 1);
+      
+      // If we've tried too many times, stop trying
+      if (audioInitFailCount > 3) {
+        reject(new Error('Too many audio initialization failures'));
+        return;
       }
-    } catch (e) {
-      console.error('Error initializing audio:', e);
-    }
+      
+      try {
+        // Try to get or create AudioContext
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          // Reuse existing context if possible
+          if (!audioContextRef.current) {
+            audioContextRef.current = new AudioContext();
+          }
+          
+          const audioCtx = audioContextRef.current;
+          
+          // Only try to resume if it's suspended
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume().then(() => {
+              console.log('AudioContext successfully resumed');
+              setAudioInitialized(true);
+              resolve();
+            }).catch(e => {
+              console.warn('Could not resume AudioContext:', e);
+              reject(e);
+            });
+          } else {
+            // Already running
+            setAudioInitialized(true);
+            resolve();
+            return;
+          }
+          
+          // Create a short beep - keep volume very low
+          const oscillator = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          
+          // Very low volume to prevent annoyance
+          gainNode.gain.value = 0.01;
+          
+          oscillator.frequency.value = 440; // A4 note
+          oscillator.start();
+          oscillator.stop(audioCtx.currentTime + 0.05); // Very short beep
+          
+          // CRITICAL: Also request microphone permission explicitly for Safari
+          if ((isIOS() || isSafari()) && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            // This explicit permission request helps Safari unlock the microphone
+            navigator.mediaDevices.getUserMedia({ audio: true })
+              .then(stream => {
+                console.log('Microphone permission granted on Safari/iOS');
+                // Stop all tracks to release the microphone
+                stream.getTracks().forEach(track => track.stop());
+                
+                // Initialize speech recognition after microphone permission
+                if (recognitionRef.current === null) {
+                  recognitionRef.current = initSpeechRecognition();
+                }
+                
+                setAudioInitialized(true);
+                resolve();
+              })
+              .catch(err => {
+                console.error('Error getting microphone permission:', err);
+                setError('Please grant microphone permission for voice recording.');
+                reject(err);
+              });
+          } else {
+            setAudioInitialized(true);
+            resolve();
+          }
+        } else {
+          reject(new Error('AudioContext not supported'));
+        }
+      } catch (e) {
+        console.error('Error initializing audio:', e);
+        reject(e);
+      }
+    });
   };
 
   return (

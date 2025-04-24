@@ -1,5 +1,18 @@
 Options -MultiViews
 RewriteEngine On
+
+# Redirect HTTP to HTTPS
+RewriteCond %{HTTPS} off
+RewriteCond %{HTTP_HOST} !^localhost [NC]
+RewriteCond %{HTTP_HOST} !\.local$ [NC]
+RewriteCond %{HTTP_HOST} !^127\.0\.0\.1 [NC]
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Redirect www to non-www
+RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
+RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+
+# Handle Single Page Application routing
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^ index.html [QSA,L]
 
@@ -30,4 +43,22 @@ RewriteRule ^ index.html [QSA,L]
   ExpiresByType application/x-shockwave-flash "access plus 1 month"
   ExpiresByType image/x-icon "access plus 1 year"
   ExpiresDefault "access plus 2 days"
+</IfModule>
+
+# Add security headers
+<IfModule mod_headers.c>
+  # Protect against XSS attacks
+  Header set X-XSS-Protection "1; mode=block"
+  
+  # Prevent MIME-type sniffing
+  Header set X-Content-Type-Options "nosniff"
+  
+  # Strict Transport Security (HSTS)
+  Header set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" env=HTTPS
+  
+  # Disable iframe embedding except from same origin
+  Header set X-Frame-Options "SAMEORIGIN"
+  
+  # Prevent browsers from sending the Referer header when navigating from HTTPS to HTTP
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
 </IfModule> 
